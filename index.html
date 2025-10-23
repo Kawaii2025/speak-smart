@@ -17,6 +17,8 @@
             primary: '#165DFF',
             secondary: '#36CFC9',
             accent: '#722ED1',
+            success: '#52C41A',
+            danger: '#F5222D',
             neutral: {
               100: '#F5F7FA',
               200: '#E5E6EB',
@@ -49,11 +51,20 @@
       .sentence-active {
         @apply bg-primary/10 dark:bg-primary/20;
       }
+      .sentence-mastered {
+        @apply bg-success/5 dark:bg-success/10;
+      }
       .progress-bar {
         @apply h-1 bg-neutral-200 dark:bg-neutral-500 rounded-full overflow-hidden;
       }
       .progress-fill {
         @apply h-full bg-primary transition-all duration-300 w-0;
+      }
+      .mastery-badge {
+        @apply px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary dark:bg-primary/20;
+      }
+      .number-badge {
+        @apply w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium mr-3 flex-shrink-0;
       }
     }
   </style>
@@ -68,6 +79,9 @@
       </div>
       
       <div class="flex items-center space-x-4">
+        <div id="mastery-percentage" class="mastery-badge hidden">
+          0% Mastered
+        </div>
         <button id="theme-toggle" class="p-2 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-500 transition-colors">
           <i class="fa fa-moon-o dark:hidden text-neutral-500"></i>
           <i class="fa fa-sun-o hidden dark:inline text-yellow-300"></i>
@@ -81,7 +95,7 @@
     <section class="mb-8 text-center">
       <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-4 text-shadow">English Speaking Practice</h2>
       <p class="text-neutral-500 dark:text-neutral-300 max-w-2xl mx-auto">
-        Enter your sentences, each on a new line. Click play buttons to practice, or use the play all feature for continuous practice.
+        Enter your sentences, each on a new line. Click play buttons to practice, mark as mastered when you've learned it.
       </p>
     </section>
     
@@ -123,6 +137,13 @@
               <span>Play All</span>
             </button>
             <button 
+              id="play-unmastered-btn" 
+              class="bg-danger hover:bg-danger/90 text-white px-4 py-2 rounded-lg shadow transition-all flex items-center space-x-2 text-sm"
+            >
+              <i class="fa fa-forward"></i>
+              <span>Play Unmastered</span>
+            </button>
+            <button 
               id="stop-all-btn" 
               class="bg-neutral-400 hover:bg-neutral-500 text-white px-4 py-2 rounded-lg shadow transition-all flex items-center space-x-2 text-sm hidden"
             >
@@ -150,8 +171,8 @@
         <div>
           <h4 class="font-semibold text-primary mb-1">Practice Tips</h4>
           <p class="text-sm text-neutral-500 dark:text-neutral-300">
-            Use "Play All" to hear the entire text continuously. Listen first, then repeat each sentence. 
-            Focus on intonation and stress patterns for natural speaking.
+            Listen to each sentence, repeat it until you're comfortable, then mark it as mastered. 
+            Use "Play Unmastered" to focus on sentences you haven't yet mastered.
           </p>
         </div>
       </div>
@@ -172,13 +193,17 @@
     const sentencesContainer = document.getElementById('sentences-container');
     const themeToggle = document.getElementById('theme-toggle');
     const playAllBtn = document.getElementById('play-all-btn');
+    const playUnmasteredBtn = document.getElementById('play-unmastered-btn');
     const stopAllBtn = document.getElementById('stop-all-btn');
     const playProgress = document.getElementById('play-progress');
+    const masteryPercentage = document.getElementById('mastery-percentage');
     
     // 播放状态变量
     let isPlayingAll = false;
+    let isPlayingUnmastered = false;
     let currentSentenceIndex = 0;
     let sentencesList = [];
+    let masteredSentences = []; // 存储已掌握的句子索引
     
     // 深色模式切换
     themeToggle.addEventListener('click', () => {
@@ -204,10 +229,36 @@
     });
     
     // 播放全部按钮事件
-    playAllBtn.addEventListener('click', startPlayAll);
+    playAllBtn.addEventListener('click', () => {
+      startPlayback(true);
+    });
+    
+    // 播放未掌握按钮事件
+    playUnmasteredBtn.addEventListener('click', () => {
+      startPlayback(false);
+    });
     
     // 停止播放按钮事件
-    stopAllBtn.addEventListener('click', stopPlayAll);
+    stopAllBtn.addEventListener('click', stopPlayback);
+    
+    // 开始播放（全部或仅未掌握）
+    function startPlayback(includeMastered) {
+      if (sentencesList.length === 0) return;
+      
+      // 重置状态
+      stopPlayback();
+      isPlayingAll = includeMastered;
+      isPlayingUnmastered = !includeMastered;
+      currentSentenceIndex = 0;
+      
+      // 更新UI
+      playAllBtn.classList.add('hidden');
+      playUnmasteredBtn.classList.add('hidden');
+      stopAllBtn.classList.remove('hidden');
+      
+      // 开始播放第一个句子
+      playNextSentence();
+    }
     
     // 处理文本函数 - 按行分割
     function processText() {
@@ -217,12 +268,18 @@
       // 按行分割文本，过滤空行
       sentencesList = text.split('\n').filter(line => line.trim() !== '');
       
+      // 重置已掌握状态
+      masteredSentences = new Array(sentencesList.length).fill(false);
+      
       // 清空并显示结果区域
       sentencesContainer.innerHTML = '';
       resultsSection.classList.remove('hidden');
       
       // 重置播放进度
       updateProgress(0);
+      
+      // 更新掌握度显示
+      updateMasteryPercentage();
       
       // 平滑滚动到结果区域
       resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -240,13 +297,18 @@
     // 创建句子元素
     function createSentenceElement(sentence, index) {
       const div = document.createElement('div');
-      div.className = 'flex items-start p-3 rounded-lg sentence-hover';
+      div.className = 'flex items-center p-3 rounded-lg sentence-hover';
       div.dataset.index = index;
       div.id = `sentence-${index}`;
       
-      // 播放按钮
+      // 序号徽章
+      const numberBadge = document.createElement('div');
+      numberBadge.className = 'number-badge';
+      numberBadge.textContent = index + 1;
+      
+      // 播放按钮 - 使用flex确保垂直居中
       const playBtn = document.createElement('button');
-      playBtn.className = 'mr-3 text-primary hover:text-primary/80 transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30';
+      playBtn.className = 'mr-3 text-primary hover:text-primary/80 transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30 flex items-center justify-center flex-shrink-0';
       playBtn.innerHTML = '<i class="fa fa-play"></i>';
       playBtn.dataset.index = index;
       
@@ -255,94 +317,166 @@
       textSpan.className = 'flex-1 leading-relaxed';
       textSpan.textContent = sentence;
       
+      // 掌握按钮
+      const masterBtn = document.createElement('button');
+      masterBtn.className = 'ml-3 text-neutral-400 hover:text-success transition-colors p-2 rounded-full hover:bg-success/10 focus:outline-none focus:ring-2 focus:ring-success/30 flex items-center justify-center flex-shrink-0';
+      masterBtn.innerHTML = '<i class="fa fa-check"></i>';
+      masterBtn.dataset.index = index;
+      masterBtn.title = 'Mark as mastered';
+      
+      div.appendChild(numberBadge);
       div.appendChild(playBtn);
       div.appendChild(textSpan);
+      div.appendChild(masterBtn);
       
       // 播放按钮点击事件
       playBtn.addEventListener('click', (e) => {
         const idx = parseInt(e.currentTarget.dataset.index);
-        stopPlayAll(); // 停止连播
+        stopPlayback(); // 停止连播
         speakSentence(sentence, div, playBtn, idx, false);
       });
       
       // 点击句子本身也可以播放
       textSpan.addEventListener('click', () => {
-        stopPlayAll(); // 停止连播
+        stopPlayback(); // 停止连播
         speakSentence(sentence, div, playBtn, index, false);
+      });
+      
+      // 掌握按钮点击事件
+      masterBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(e.currentTarget.dataset.index);
+        toggleMasteredStatus(idx, div, masterBtn);
       });
       
       return div;
     }
     
-    // 开始连播所有句子
-    function startPlayAll() {
-      if (sentencesList.length === 0) return;
-      
-      // 重置状态
-      stopPlayAll();
-      isPlayingAll = true;
-      currentSentenceIndex = 0;
+    // 切换掌握状态
+    function toggleMasteredStatus(index, sentenceElement, button) {
+      // 切换状态
+      masteredSentences[index] = !masteredSentences[index];
       
       // 更新UI
-      playAllBtn.classList.add('hidden');
-      stopAllBtn.classList.remove('hidden');
+      if (masteredSentences[index]) {
+        sentenceElement.classList.add('sentence-mastered');
+        button.classList.remove('text-neutral-400');
+        button.classList.add('text-success');
+        button.title = 'Unmark as mastered';
+      } else {
+        sentenceElement.classList.remove('sentence-mastered');
+        button.classList.remove('text-success');
+        button.classList.add('text-neutral-400');
+        button.title = 'Mark as mastered';
+      }
       
-      // 开始播放第一个句子
-      playNextSentence();
+      // 更新掌握度百分比
+      updateMasteryPercentage();
+    }
+    
+    // 更新掌握度百分比
+    function updateMasteryPercentage() {
+      if (sentencesList.length === 0) {
+        masteryPercentage.classList.add('hidden');
+        return;
+      }
+      
+      const masteredCount = masteredSentences.filter(status => status).length;
+      const percentage = Math.round((masteredCount / sentencesList.length) * 100);
+      
+      masteryPercentage.textContent = `${percentage}% Mastered`;
+      masteryPercentage.classList.remove('hidden');
+      
+      // 根据掌握程度改变徽章颜色
+      if (percentage === 100) {
+        masteryPercentage.classList.remove('bg-primary/10', 'text-primary', 'dark:bg-primary/20');
+        masteryPercentage.classList.add('bg-success/10', 'text-success', 'dark:bg-success/20');
+      } else {
+        masteryPercentage.classList.remove('bg-success/10', 'text-success', 'dark:bg-success/20');
+        masteryPercentage.classList.add('bg-primary/10', 'text-primary', 'dark:bg-primary/20');
+      }
     }
     
     // 播放下一个句子
     function playNextSentence() {
-      if (!isPlayingAll || currentSentenceIndex >= sentencesList.length) {
+      if ((!isPlayingAll && !isPlayingUnmastered) || currentSentenceIndex >= sentencesList.length) {
         // 播放结束
-        finishPlayAll();
+        finishPlayback();
         return;
+      }
+      
+      // 如果是播放未掌握模式，找到下一个未掌握的句子
+      if (isPlayingUnmastered) {
+        let found = false;
+        while (currentSentenceIndex < sentencesList.length) {
+          if (!masteredSentences[currentSentenceIndex]) {
+            found = true;
+            break;
+          }
+          currentSentenceIndex++;
+        }
+        
+        if (!found) {
+          // 没有未掌握的句子了
+          finishPlayback();
+          return;
+        }
       }
       
       // 获取当前句子元素
       const sentence = sentencesList[currentSentenceIndex];
       const sentenceElement = document.getElementById(`sentence-${currentSentenceIndex}`);
       if (!sentenceElement) {
-        finishPlayAll();
+        finishPlayback();
         return;
       }
       
-      const playBtn = sentenceElement.querySelector('button');
+      const playBtn = sentenceElement.querySelector('button:first-of-type');
       
       // 播放当前句子
       speakSentence(sentence, sentenceElement, playBtn, currentSentenceIndex, true);
       
       // 更新进度
-      const progress = ((currentSentenceIndex + 1) / sentencesList.length) * 100;
+      const totalToPlay = isPlayingUnmastered 
+        ? sentencesList.filter((_, i) => !masteredSentences[i]).length
+        : sentencesList.length;
+      
+      const completed = isPlayingUnmastered
+        ? sentencesList.filter((_, i) => i < currentSentenceIndex && !masteredSentences[i]).length + 1
+        : currentSentenceIndex + 1;
+      
+      const progress = totalToPlay > 0 ? (completed / totalToPlay) * 100 : 0;
       updateProgress(progress);
       
       // 滚动到当前句子
       sentenceElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     
-    // 结束连播
-    function finishPlayAll() {
+    // 结束播放
+    function finishPlayback() {
       isPlayingAll = false;
+      isPlayingUnmastered = false;
       
       // 重置所有句子和按钮状态
       resetAllSentenceStates();
       
       // 更新UI
       playAllBtn.classList.remove('hidden');
+      playUnmasteredBtn.classList.remove('hidden');
       stopAllBtn.classList.add('hidden');
       
       // 重置进度
       updateProgress(0);
     }
     
-    // 停止连播
-    function stopPlayAll() {
-      if (!isPlayingAll) return;
+    // 停止播放
+    function stopPlayback() {
+      if (!isPlayingAll && !isPlayingUnmastered) return;
       
       // 停止语音播放
       window.speechSynthesis.cancel();
       
-      finishPlayAll();
+      finishPlayback();
     }
     
     // 更新进度条
@@ -353,9 +487,12 @@
     // 重置所有句子状态
     function resetAllSentenceStates() {
       document.querySelectorAll('#sentences-container > div').forEach(el => {
-        el.classList.remove('sentence-active');
+        // 保留已掌握状态，但移除活跃状态
+        if (!el.classList.contains('sentence-mastered')) {
+          el.classList.remove('sentence-active');
+        }
       });
-      document.querySelectorAll('#sentences-container button').forEach(btn => {
+      document.querySelectorAll('#sentences-container button:first-of-type').forEach(btn => {
         btn.innerHTML = '<i class="fa fa-play"></i>';
         btn.classList.remove('text-secondary');
         btn.classList.add('text-primary');
@@ -371,7 +508,9 @@
       resetAllSentenceStates();
       
       // 设置当前句子和按钮状态
-      sentenceElement.classList.add('sentence-active');
+      if (!sentenceElement.classList.contains('sentence-mastered')) {
+        sentenceElement.classList.add('sentence-active');
+      }
       button.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
       button.classList.remove('text-primary');
       button.classList.add('text-secondary');
@@ -386,7 +525,7 @@
       // 播放结束时的处理
       utterance.onend = () => {
         // 如果是连播模式，继续下一个句子
-        if (isPartOfSequence && isPlayingAll && index === currentSentenceIndex) {
+        if (isPartOfSequence && (isPlayingAll || isPlayingUnmastered) && index === currentSentenceIndex) {
           currentSentenceIndex++;
           // 短暂延迟后播放下一句
           setTimeout(playNextSentence, 500);
@@ -407,7 +546,7 @@
         button.classList.add('text-red-500');
         
         // 如果是连播模式，继续下一个句子
-        if (isPartOfSequence && isPlayingAll) {
+        if (isPartOfSequence && (isPlayingAll || isPlayingUnmastered)) {
           currentSentenceIndex++;
           setTimeout(playNextSentence, 1000);
         } else {
@@ -425,7 +564,7 @@
       window.speechSynthesis.speak(utterance);
     }
     
-    // 示例文本 - 按行分割
+    // 新的示例文本
     const exampleText = `Good morning/afternoon.
 Thanks for having me today.
 I’m [Your Name], and I’m applying for the Web Front-End Development job.
@@ -446,7 +585,7 @@ Then I got all these tests running on Jenkins.
 This made regression testing faster, and the system more reliable and easier to maintain.
 Third, I helped with small back-end tasks.
 For example, I developed simple APIs, maintained them, and wrote unit tests for back-end code with Karate/JUnit.
-Before Faben, I worked at Pactera Jinxin and South Digital.
+Before Farben, I worked at Pactera Jinxin and South Digital.
 Those jobs let me get really good at Vue, Angular, and TypeScript.
 I also worked on projects like GF Securities’ customer relationship systems and GIS-based tax analysis tools back then.
 Overall, I’m skilled in HTML, JS, CSS, React, Vue, Angular, TypeScript, and webpack.
