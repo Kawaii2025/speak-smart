@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>English Speaking Practice</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  
+  <!-- Tailwind 配置 -->
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: '#165DFF',
+            secondary: '#36CFC9',
+            accent: '#722ED1',
+            neutral: {
+              100: '#F5F7FA',
+              200: '#E5E6EB',
+              300: '#C9CDD4',
+              400: '#86909C',
+              500: '#4E5969',
+              600: '#272E3B',
+              700: '#1D2129',
+            }
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .text-shadow {
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .transition-height {
+        transition: max-height 0.3s ease-in-out;
+      }
+      .sentence-hover {
+        @apply hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors duration-200;
+      }
+      .sentence-active {
+        @apply bg-primary/10 dark:bg-primary/20;
+      }
+    }
+  </style>
+</head>
+<body class="font-inter bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-100 transition-colors duration-300 min-h-screen">
+  <!-- 顶部导航 -->
+  <header class="bg-white dark:bg-neutral-600 shadow-sm sticky top-0 z-50 transition-all duration-300">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa fa-comments text-primary text-2xl"></i>
+        <h1 class="text-xl font-bold text-primary">SpeakSmart</h1>
+      </div>
+      
+      <div class="flex items-center space-x-4">
+        <button id="theme-toggle" class="p-2 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-500 transition-colors">
+          <i class="fa fa-moon-o dark:hidden text-neutral-500"></i>
+          <i class="fa fa-sun-o hidden dark:inline text-yellow-300"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container mx-auto px-4 py-8 max-w-4xl">
+    <!-- 介绍部分 -->
+    <section class="mb-8 text-center">
+      <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-4 text-shadow">English Speaking Practice</h2>
+      <p class="text-neutral-500 dark:text-neutral-300 max-w-2xl mx-auto">
+        Enter your sentences, each on a new line. Click the play button to hear each sentence and practice your pronunciation.
+      </p>
+    </section>
+    
+    <!-- 输入区域 -->
+    <section class="mb-8 bg-white dark:bg-neutral-600 rounded-xl shadow-md p-6 transition-all duration-300 transform hover:shadow-lg">
+      <label for="text-input" class="block text-lg font-medium mb-3 text-neutral-600 dark:text-neutral-200">Enter your sentences (one per line):</label>
+      <textarea 
+        id="text-input" 
+        class="w-full h-40 p-4 border border-neutral-200 dark:border-neutral-500 rounded-lg bg-neutral-50 dark:bg-neutral-700 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all resize-none"
+        placeholder="Type or paste your English sentences, each on a new line...&#10;&#10;Hello, how are you today?&#10;I am learning English pronunciation.&#10;Could you please repeat that?&#10;Practice makes perfect."
+      ></textarea>
+      
+      <div class="mt-4 flex justify-end">
+        <button 
+          id="process-btn" 
+          class="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg shadow transition-all flex items-center space-x-2 transform hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <i class="fa fa-magic"></i>
+          <span>Process Sentences</span>
+        </button>
+      </div>
+    </section>
+    
+    <!-- 结果区域 -->
+    <section id="results-section" class="mb-8 hidden">
+      <div class="bg-white dark:bg-neutral-600 rounded-xl shadow-md p-6 transition-all duration-300">
+        <h3 class="text-xl font-bold mb-4 flex items-center">
+          <i class="fa fa-list-alt text-primary mr-2"></i>
+          Your Sentences
+        </h3>
+        
+        <div id="sentences-container" class="space-y-4">
+          <!-- 句子将在这里动态生成 -->
+        </div>
+      </div>
+    </section>
+    
+    <!-- 提示卡片 -->
+    <section class="bg-primary/5 dark:bg-primary/10 rounded-xl p-5 border border-primary/20 mb-8">
+      <div class="flex items-start">
+        <i class="fa fa-lightbulb-o text-primary text-xl mt-1 mr-3"></i>
+        <div>
+          <h4 class="font-semibold text-primary mb-1">Practice Tips</h4>
+          <p class="text-sm text-neutral-500 dark:text-neutral-300">
+            Each line you enter becomes a separate sentence. Listen to the pronunciation, then try to repeat it. 
+            Focus on intonation and stress patterns for natural speaking.
+          </p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="bg-white dark:bg-neutral-600 py-6 mt-auto">
+    <div class="container mx-auto px-4 text-center text-neutral-400 dark:text-neutral-500 text-sm">
+      <p>SpeakSmart - Improve your English speaking skills effectively</p>
+    </div>
+  </footer>
+
+  <script>
+    // DOM 元素
+    const textInput = document.getElementById('text-input');
+    const processBtn = document.getElementById('process-btn');
+    const resultsSection = document.getElementById('results-section');
+    const sentencesContainer = document.getElementById('sentences-container');
+    const themeToggle = document.getElementById('theme-toggle');
+    
+    // 深色模式切换
+    themeToggle.addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+    });
+    
+    // 检查保存的主题偏好
+    if (localStorage.getItem('darkMode') === 'true' || 
+        (window.matchMedia('(prefers-color-scheme: dark)').matches && !localStorage.getItem('darkMode'))) {
+      document.documentElement.classList.add('dark');
+    }
+    
+    // 处理文本并按行断句
+    processBtn.addEventListener('click', processText);
+    
+    // 按Enter+Shift提交
+    textInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && e.shiftKey) {
+        e.preventDefault();
+        processText();
+      }
+    });
+    
+    // 处理文本函数 - 按行分割
+    function processText() {
+      const text = textInput.value.trim();
+      if (!text) return;
+      
+      // 按行分割文本，过滤空行
+      const sentences = text.split('\n').filter(line => line.trim() !== '');
+      
+      // 清空并显示结果区域
+      sentencesContainer.innerHTML = '';
+      resultsSection.classList.remove('hidden');
+      
+      // 平滑滚动到结果区域
+      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
+      // 为每个句子创建元素
+      sentences.forEach((sentence, index) => {
+        const trimmedSentence = sentence.trim();
+        if (trimmedSentence) {
+          const sentenceElement = createSentenceElement(trimmedSentence, index);
+          sentencesContainer.appendChild(sentenceElement);
+        }
+      });
+    }
+    
+    // 创建句子元素
+    function createSentenceElement(sentence, index) {
+      const div = document.createElement('div');
+      div.className = 'flex items-start p-3 rounded-lg sentence-hover';
+      div.dataset.index = index;
+      
+      // 播放按钮
+      const playBtn = document.createElement('button');
+      playBtn.className = 'mr-3 text-primary hover:text-primary/80 transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30';
+      playBtn.innerHTML = '<i class="fa fa-play"></i>';
+      
+      // 句子文本
+      const textSpan = document.createElement('span');
+      textSpan.className = 'flex-1 leading-relaxed';
+      textSpan.textContent = sentence;
+      
+      div.appendChild(playBtn);
+      div.appendChild(textSpan);
+      
+      // 播放按钮点击事件
+      playBtn.addEventListener('click', () => {
+        speakSentence(sentence, div, playBtn);
+      });
+      
+      // 点击句子本身也可以播放
+      textSpan.addEventListener('click', () => {
+        speakSentence(sentence, div, playBtn);
+      });
+      
+      return div;
+    }
+    
+    // 语音播放函数
+    function speakSentence(text, sentenceElement, button) {
+      // 停止任何正在播放的语音
+      window.speechSynthesis.cancel();
+      
+      // 重置所有句子和按钮状态
+      document.querySelectorAll('#sentences-container > div').forEach(el => {
+        el.classList.remove('sentence-active');
+      });
+      document.querySelectorAll('#sentences-container button').forEach(btn => {
+        btn.innerHTML = '<i class="fa fa-play"></i>';
+        btn.classList.remove('text-secondary');
+        btn.classList.add('text-primary');
+      });
+      
+      // 设置当前句子和按钮状态
+      sentenceElement.classList.add('sentence-active');
+      button.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+      button.classList.remove('text-primary');
+      button.classList.add('text-secondary');
+      
+      // 创建语音实例
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = 0.9; // 稍慢一点便于学习
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      
+      // 播放结束时重置状态
+      utterance.onend = () => {
+        sentenceElement.classList.remove('sentence-active');
+        button.innerHTML = '<i class="fa fa-play"></i>';
+        button.classList.remove('text-secondary');
+        button.classList.add('text-primary');
+      };
+      
+      // 播放错误处理
+      utterance.onerror = (event) => {
+        console.error('Speech error:', event.error);
+        button.innerHTML = '<i class="fa fa-exclamation-triangle"></i>';
+        button.classList.remove('text-secondary');
+        button.classList.add('text-red-500');
+        
+        // 3秒后恢复按钮状态
+        setTimeout(() => {
+          sentenceElement.classList.remove('sentence-active');
+          button.innerHTML = '<i class="fa fa-play"></i>';
+          button.classList.remove('text-red-500');
+          button.classList.add('text-primary');
+        }, 3000);
+      };
+      
+      // 播放语音
+      window.speechSynthesis.speak(utterance);
+    }
+    
+    // 示例文本 - 按行分割
+    const exampleText = `Hello, how are you today?
+I am learning English pronunciation.
+Could you please repeat that?
+What time is the meeting?
+She goes to the park every Sunday.
+I have lived in this city for five years.
+Learning a new language takes time and practice.
+Could you speak a little slower?
+I enjoy reading books in my free time.
+What's your favorite English word?`;
+    
+    // 页面加载时设置示例文本
+    window.addEventListener('load', () => {
+      textInput.value = exampleText;
+    });
+  </script>
+</body>
+</html>
