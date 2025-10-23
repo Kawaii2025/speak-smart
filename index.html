@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>English Speaking Practice</title>
+  <title>LineSpeak - English Practice</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
   
@@ -30,10 +30,7 @@
           fontFamily: {
             inter: ['Inter', 'system-ui', 'sans-serif'],
           },
-          animation: {
-            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-          }
-        },
+        }
       }
     }
   </script>
@@ -46,14 +43,17 @@
       .text-shadow {
         text-shadow: 0 2px 4px rgba(0,0,0,0.1);
       }
-      .transition-height {
-        transition: max-height 0.3s ease-in-out;
-      }
       .sentence-hover {
         @apply hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors duration-200;
       }
       .sentence-active {
         @apply bg-primary/10 dark:bg-primary/20;
+      }
+      .progress-bar {
+        @apply h-1 bg-neutral-200 dark:bg-neutral-500 rounded-full overflow-hidden;
+      }
+      .progress-fill {
+        @apply h-full bg-primary transition-all duration-300 w-0;
       }
     }
   </style>
@@ -64,7 +64,7 @@
     <div class="container mx-auto px-4 py-4 flex justify-between items-center">
       <div class="flex items-center space-x-2">
         <i class="fa fa-comments text-primary text-2xl"></i>
-        <h1 class="text-xl font-bold text-primary">SpeakSmart</h1>
+        <h1 class="text-xl font-bold text-primary">LineSpeak</h1>
       </div>
       
       <div class="flex items-center space-x-4">
@@ -81,7 +81,7 @@
     <section class="mb-8 text-center">
       <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-4 text-shadow">English Speaking Practice</h2>
       <p class="text-neutral-500 dark:text-neutral-300 max-w-2xl mx-auto">
-        Enter your sentences, each on a new line. Click the play button to hear each sentence and practice your pronunciation.
+        Enter your sentences, each on a new line. Click play buttons to practice, or use the play all feature for continuous practice.
       </p>
     </section>
     
@@ -97,7 +97,7 @@
       <div class="mt-4 flex justify-end">
         <button 
           id="process-btn" 
-          class="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg shadow transition-all flex items-center space-x-2 transform hover:scale-[1.02] active:scale-[0.98]"
+          class="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg shadow transition-all flex items-center space-x-2 transform hover:scale-[1.02] active:scale-[0.98] mr-3"
         >
           <i class="fa fa-magic"></i>
           <span>Process Sentences</span>
@@ -108,10 +108,34 @@
     <!-- 结果区域 -->
     <section id="results-section" class="mb-8 hidden">
       <div class="bg-white dark:bg-neutral-600 rounded-xl shadow-md p-6 transition-all duration-300">
-        <h3 class="text-xl font-bold mb-4 flex items-center">
-          <i class="fa fa-list-alt text-primary mr-2"></i>
-          Your Sentences
-        </h3>
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-xl font-bold flex items-center">
+            <i class="fa fa-list-alt text-primary mr-2"></i>
+            Your Sentences
+          </h3>
+          
+          <div class="flex space-x-2">
+            <button 
+              id="play-all-btn" 
+              class="bg-secondary hover:bg-secondary/90 text-white px-4 py-2 rounded-lg shadow transition-all flex items-center space-x-2 text-sm"
+            >
+              <i class="fa fa-play"></i>
+              <span>Play All</span>
+            </button>
+            <button 
+              id="stop-all-btn" 
+              class="bg-neutral-400 hover:bg-neutral-500 text-white px-4 py-2 rounded-lg shadow transition-all flex items-center space-x-2 text-sm hidden"
+            >
+              <i class="fa fa-stop"></i>
+              <span>Stop</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- 播放进度条 -->
+        <div class="progress-bar mb-4">
+          <div id="play-progress" class="progress-fill"></div>
+        </div>
         
         <div id="sentences-container" class="space-y-4">
           <!-- 句子将在这里动态生成 -->
@@ -126,7 +150,7 @@
         <div>
           <h4 class="font-semibold text-primary mb-1">Practice Tips</h4>
           <p class="text-sm text-neutral-500 dark:text-neutral-300">
-            Each line you enter becomes a separate sentence. Listen to the pronunciation, then try to repeat it. 
+            Use "Play All" to hear the entire text continuously. Listen first, then repeat each sentence. 
             Focus on intonation and stress patterns for natural speaking.
           </p>
         </div>
@@ -136,7 +160,7 @@
 
   <footer class="bg-white dark:bg-neutral-600 py-6 mt-auto">
     <div class="container mx-auto px-4 text-center text-neutral-400 dark:text-neutral-500 text-sm">
-      <p>SpeakSmart - Improve your English speaking skills effectively</p>
+      <p>LineSpeak - Improve your English speaking skills effectively</p>
     </div>
   </footer>
 
@@ -147,6 +171,14 @@
     const resultsSection = document.getElementById('results-section');
     const sentencesContainer = document.getElementById('sentences-container');
     const themeToggle = document.getElementById('theme-toggle');
+    const playAllBtn = document.getElementById('play-all-btn');
+    const stopAllBtn = document.getElementById('stop-all-btn');
+    const playProgress = document.getElementById('play-progress');
+    
+    // 播放状态变量
+    let isPlayingAll = false;
+    let currentSentenceIndex = 0;
+    let sentencesList = [];
     
     // 深色模式切换
     themeToggle.addEventListener('click', () => {
@@ -171,23 +203,32 @@
       }
     });
     
+    // 播放全部按钮事件
+    playAllBtn.addEventListener('click', startPlayAll);
+    
+    // 停止播放按钮事件
+    stopAllBtn.addEventListener('click', stopPlayAll);
+    
     // 处理文本函数 - 按行分割
     function processText() {
       const text = textInput.value.trim();
       if (!text) return;
       
       // 按行分割文本，过滤空行
-      const sentences = text.split('\n').filter(line => line.trim() !== '');
+      sentencesList = text.split('\n').filter(line => line.trim() !== '');
       
       // 清空并显示结果区域
       sentencesContainer.innerHTML = '';
       resultsSection.classList.remove('hidden');
       
+      // 重置播放进度
+      updateProgress(0);
+      
       // 平滑滚动到结果区域
       resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       
       // 为每个句子创建元素
-      sentences.forEach((sentence, index) => {
+      sentencesList.forEach((sentence, index) => {
         const trimmedSentence = sentence.trim();
         if (trimmedSentence) {
           const sentenceElement = createSentenceElement(trimmedSentence, index);
@@ -201,11 +242,13 @@
       const div = document.createElement('div');
       div.className = 'flex items-start p-3 rounded-lg sentence-hover';
       div.dataset.index = index;
+      div.id = `sentence-${index}`;
       
       // 播放按钮
       const playBtn = document.createElement('button');
       playBtn.className = 'mr-3 text-primary hover:text-primary/80 transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30';
       playBtn.innerHTML = '<i class="fa fa-play"></i>';
+      playBtn.dataset.index = index;
       
       // 句子文本
       const textSpan = document.createElement('span');
@@ -216,24 +259,99 @@
       div.appendChild(textSpan);
       
       // 播放按钮点击事件
-      playBtn.addEventListener('click', () => {
-        speakSentence(sentence, div, playBtn);
+      playBtn.addEventListener('click', (e) => {
+        const idx = parseInt(e.currentTarget.dataset.index);
+        stopPlayAll(); // 停止连播
+        speakSentence(sentence, div, playBtn, idx, false);
       });
       
       // 点击句子本身也可以播放
       textSpan.addEventListener('click', () => {
-        speakSentence(sentence, div, playBtn);
+        stopPlayAll(); // 停止连播
+        speakSentence(sentence, div, playBtn, index, false);
       });
       
       return div;
     }
     
-    // 语音播放函数
-    function speakSentence(text, sentenceElement, button) {
-      // 停止任何正在播放的语音
-      window.speechSynthesis.cancel();
+    // 开始连播所有句子
+    function startPlayAll() {
+      if (sentencesList.length === 0) return;
+      
+      // 重置状态
+      stopPlayAll();
+      isPlayingAll = true;
+      currentSentenceIndex = 0;
+      
+      // 更新UI
+      playAllBtn.classList.add('hidden');
+      stopAllBtn.classList.remove('hidden');
+      
+      // 开始播放第一个句子
+      playNextSentence();
+    }
+    
+    // 播放下一个句子
+    function playNextSentence() {
+      if (!isPlayingAll || currentSentenceIndex >= sentencesList.length) {
+        // 播放结束
+        finishPlayAll();
+        return;
+      }
+      
+      // 获取当前句子元素
+      const sentence = sentencesList[currentSentenceIndex];
+      const sentenceElement = document.getElementById(`sentence-${currentSentenceIndex}`);
+      if (!sentenceElement) {
+        finishPlayAll();
+        return;
+      }
+      
+      const playBtn = sentenceElement.querySelector('button');
+      
+      // 播放当前句子
+      speakSentence(sentence, sentenceElement, playBtn, currentSentenceIndex, true);
+      
+      // 更新进度
+      const progress = ((currentSentenceIndex + 1) / sentencesList.length) * 100;
+      updateProgress(progress);
+      
+      // 滚动到当前句子
+      sentenceElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    
+    // 结束连播
+    function finishPlayAll() {
+      isPlayingAll = false;
       
       // 重置所有句子和按钮状态
+      resetAllSentenceStates();
+      
+      // 更新UI
+      playAllBtn.classList.remove('hidden');
+      stopAllBtn.classList.add('hidden');
+      
+      // 重置进度
+      updateProgress(0);
+    }
+    
+    // 停止连播
+    function stopPlayAll() {
+      if (!isPlayingAll) return;
+      
+      // 停止语音播放
+      window.speechSynthesis.cancel();
+      
+      finishPlayAll();
+    }
+    
+    // 更新进度条
+    function updateProgress(percent) {
+      playProgress.style.width = `${percent}%`;
+    }
+    
+    // 重置所有句子状态
+    function resetAllSentenceStates() {
       document.querySelectorAll('#sentences-container > div').forEach(el => {
         el.classList.remove('sentence-active');
       });
@@ -242,6 +360,15 @@
         btn.classList.remove('text-secondary');
         btn.classList.add('text-primary');
       });
+    }
+    
+    // 语音播放函数
+    function speakSentence(text, sentenceElement, button, index, isPartOfSequence) {
+      // 停止任何正在播放的语音
+      window.speechSynthesis.cancel();
+      
+      // 重置所有句子和按钮状态
+      resetAllSentenceStates();
       
       // 设置当前句子和按钮状态
       sentenceElement.classList.add('sentence-active');
@@ -256,12 +383,20 @@
       utterance.pitch = 1;
       utterance.volume = 1;
       
-      // 播放结束时重置状态
+      // 播放结束时的处理
       utterance.onend = () => {
-        sentenceElement.classList.remove('sentence-active');
-        button.innerHTML = '<i class="fa fa-play"></i>';
-        button.classList.remove('text-secondary');
-        button.classList.add('text-primary');
+        // 如果是连播模式，继续下一个句子
+        if (isPartOfSequence && isPlayingAll && index === currentSentenceIndex) {
+          currentSentenceIndex++;
+          // 短暂延迟后播放下一句
+          setTimeout(playNextSentence, 500);
+        } else {
+          // 重置当前句子状态
+          sentenceElement.classList.remove('sentence-active');
+          button.innerHTML = '<i class="fa fa-play"></i>';
+          button.classList.remove('text-secondary');
+          button.classList.add('text-primary');
+        }
       };
       
       // 播放错误处理
@@ -271,13 +406,19 @@
         button.classList.remove('text-secondary');
         button.classList.add('text-red-500');
         
-        // 3秒后恢复按钮状态
-        setTimeout(() => {
-          sentenceElement.classList.remove('sentence-active');
-          button.innerHTML = '<i class="fa fa-play"></i>';
-          button.classList.remove('text-red-500');
-          button.classList.add('text-primary');
-        }, 3000);
+        // 如果是连播模式，继续下一个句子
+        if (isPartOfSequence && isPlayingAll) {
+          currentSentenceIndex++;
+          setTimeout(playNextSentence, 1000);
+        } else {
+          // 3秒后恢复按钮状态
+          setTimeout(() => {
+            sentenceElement.classList.remove('sentence-active');
+            button.innerHTML = '<i class="fa fa-play"></i>';
+            button.classList.remove('text-red-500');
+            button.classList.add('text-primary');
+          }, 3000);
+        }
       };
       
       // 播放语音
@@ -314,10 +455,9 @@ I also know how to meet the strict standards of the financial industry.
 I’m excited to bring these skills to your team.
 Thanks!`;
     
-    // 页面加载时设置示例文本
+    // 页面加载时设置示例文本并自动处理
     window.addEventListener('load', () => {
       textInput.value = exampleText;
-      // 页面加载完成后自动处理文本（相当于点击了Process按钮）
       processText();
     });
   </script>
