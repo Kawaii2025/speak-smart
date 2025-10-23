@@ -171,8 +171,8 @@
         <div>
           <h4 class="font-semibold text-primary mb-1">Practice Tips</h4>
           <p class="text-sm text-neutral-500 dark:text-neutral-300">
-            Listen to each sentence, repeat it until you're comfortable, then mark it as mastered. 
-            Use "Play Unmastered" to focus on sentences you haven't yet mastered.
+            Your progress is automatically saved. Listen to each sentence, repeat it until you're comfortable, 
+            then mark it as mastered. Use "Play Unmastered" to focus on sentences you haven't yet mastered.
           </p>
         </div>
       </div>
@@ -198,6 +198,13 @@
     const playProgress = document.getElementById('play-progress');
     const masteryPercentage = document.getElementById('mastery-percentage');
     
+    // 存储键名
+    const STORAGE_KEYS = {
+      TEXT_CONTENT: 'linespeak_text_content',
+      MASTERED_SENTENCES: 'linespeak_mastered_sentences',
+      DARK_MODE: 'darkMode'
+    };
+    
     // 播放状态变量
     let isPlayingAll = false;
     let isPlayingUnmastered = false;
@@ -205,28 +212,53 @@
     let sentencesList = [];
     let masteredSentences = []; // 存储已掌握的句子索引
     
+    // 初始化 - 从本地存储加载数据
+    function initialize() {
+      // 加载深色模式设置
+      const darkMode = localStorage.getItem(STORAGE_KEYS.DARK_MODE);
+      if (darkMode === 'true' || 
+          (!darkMode && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+      }
+      
+      // 加载保存的文本内容
+      const savedText = localStorage.getItem(STORAGE_KEYS.TEXT_CONTENT);
+      if (savedText) {
+        textInput.value = savedText;
+      } else {
+        // 使用默认示例文本
+        textInput.value = exampleText;
+      }
+      
+      // 处理文本（如果有内容）
+      if (textInput.value.trim()) {
+        processText(false); // false 表示不滚动到结果区域
+      }
+    }
+    
     // 深色模式切换
     themeToggle.addEventListener('click', () => {
       document.documentElement.classList.toggle('dark');
-      localStorage.setItem('darkMode', document.documentElement.classList.contains('dark'));
+      localStorage.setItem(STORAGE_KEYS.DARK_MODE, document.documentElement.classList.contains('dark'));
     });
     
-    // 检查保存的主题偏好
-    if (localStorage.getItem('darkMode') === 'true' || 
-        (window.matchMedia('(prefers-color-scheme: dark)').matches && !localStorage.getItem('darkMode'))) {
-      document.documentElement.classList.add('dark');
-    }
-    
     // 处理文本并按行断句
-    processBtn.addEventListener('click', processText);
+    processBtn.addEventListener('click', () => {
+      processText(true);
+    });
     
     // 按Enter+Shift提交
     textInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && e.shiftKey) {
         e.preventDefault();
-        processText();
+        processText(true);
       }
     });
+    
+    // 文本输入变化时保存到本地存储
+    textInput.addEventListener('input', debounce(() => {
+      localStorage.setItem(STORAGE_KEYS.TEXT_CONTENT, textInput.value);
+    }, 500));
     
     // 播放全部按钮事件
     playAllBtn.addEventListener('click', () => {
@@ -261,15 +293,31 @@
     }
     
     // 处理文本函数 - 按行分割
-    function processText() {
+    function processText(scrollToResults = true) {
       const text = textInput.value.trim();
       if (!text) return;
+      
+      // 保存文本内容到本地存储
+      localStorage.setItem(STORAGE_KEYS.TEXT_CONTENT, text);
       
       // 按行分割文本，过滤空行
       sentencesList = text.split('\n').filter(line => line.trim() !== '');
       
-      // 重置已掌握状态
-      masteredSentences = new Array(sentencesList.length).fill(false);
+      // 从本地存储加载已掌握的句子状态
+      const savedMastered = localStorage.getItem(STORAGE_KEYS.MASTERED_SENTENCES);
+      if (savedMastered) {
+        const parsedMastered = JSON.parse(savedMastered);
+        // 确保数组长度与句子数量一致
+        masteredSentences = Array(sentencesList.length).fill(false);
+        parsedMastered.forEach((isMastered, index) => {
+          if (index < masteredSentences.length) {
+            masteredSentences[index] = isMastered;
+          }
+        });
+      } else {
+        // 重置已掌握状态
+        masteredSentences = new Array(sentencesList.length).fill(false);
+      }
       
       // 清空并显示结果区域
       sentencesContainer.innerHTML = '';
@@ -281,8 +329,10 @@
       // 更新掌握度显示
       updateMasteryPercentage();
       
-      // 平滑滚动到结果区域
-      resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // 平滑滚动到结果区域（如果需要）
+      if (scrollToResults) {
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
       
       // 为每个句子创建元素
       sentencesList.forEach((sentence, index) => {
@@ -300,6 +350,11 @@
       div.className = 'flex items-center p-3 rounded-lg sentence-hover';
       div.dataset.index = index;
       div.id = `sentence-${index}`;
+      
+      // 如果是已掌握的句子，添加相应样式
+      if (masteredSentences[index]) {
+        div.classList.add('sentence-mastered');
+      }
       
       // 序号徽章
       const numberBadge = document.createElement('div');
@@ -319,10 +374,10 @@
       
       // 掌握按钮
       const masterBtn = document.createElement('button');
-      masterBtn.className = 'ml-3 text-neutral-400 hover:text-success transition-colors p-2 rounded-full hover:bg-success/10 focus:outline-none focus:ring-2 focus:ring-success/30 flex items-center justify-center flex-shrink-0';
+      masterBtn.className = `ml-3 transition-colors p-2 rounded-full hover:bg-success/10 focus:outline-none focus:ring-2 focus:ring-success/30 flex items-center justify-center flex-shrink-0 ${masteredSentences[index] ? 'text-success' : 'text-neutral-400 hover:text-success'}`;
       masterBtn.innerHTML = '<i class="fa fa-check"></i>';
       masterBtn.dataset.index = index;
-      masterBtn.title = 'Mark as mastered';
+      masterBtn.title = masteredSentences[index] ? 'Unmark as mastered' : 'Mark as mastered';
       
       div.appendChild(numberBadge);
       div.appendChild(playBtn);
@@ -357,6 +412,9 @@
       // 切换状态
       masteredSentences[index] = !masteredSentences[index];
       
+      // 保存到本地存储
+      localStorage.setItem(STORAGE_KEYS.MASTERED_SENTENCES, JSON.stringify(masteredSentences));
+      
       // 更新UI
       if (masteredSentences[index]) {
         sentenceElement.classList.add('sentence-mastered');
@@ -366,7 +424,7 @@
       } else {
         sentenceElement.classList.remove('sentence-mastered');
         button.classList.remove('text-success');
-        button.classList.add('text-neutral-400');
+        button.classList.add('text-neutral-400', 'hover:text-success');
         button.title = 'Mark as mastered';
       }
       
@@ -564,10 +622,20 @@
       window.speechSynthesis.speak(utterance);
     }
     
-    // 新的示例文本
+    // 防抖函数 - 避免频繁保存
+    function debounce(func, wait) {
+      let timeout;
+      return function(...args) {
+        const context = this;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), wait);
+      };
+    }
+    
+    // 示例文本
     const exampleText = `Good morning/afternoon.
 Thanks for having me today.
-I’m [Your Name], and I’m applying for the Web Front-End Development job.
+I’m Qin Kai Wen, and I’m applying for the Web Front-End Development job.
 First, I have a bachelor’s degree in Geographic Information Systems from Beijing Forestry University.
 I studied there from 2010 to 2014.
 Since graduating, I’ve worked in front-end development for over 8 years.
@@ -585,7 +653,7 @@ Then I got all these tests running on Jenkins.
 This made regression testing faster, and the system more reliable and easier to maintain.
 Third, I helped with small back-end tasks.
 For example, I developed simple APIs, maintained them, and wrote unit tests for back-end code with Karate/JUnit.
-Before Farben, I worked at Pactera Jinxin and South Digital.
+Before Faben, I worked at Pactera Jinxin and South Digital.
 Those jobs let me get really good at Vue, Angular, and TypeScript.
 I also worked on projects like GF Securities’ customer relationship systems and GIS-based tax analysis tools back then.
 Overall, I’m skilled in HTML, JS, CSS, React, Vue, Angular, TypeScript, and webpack.
@@ -594,11 +662,8 @@ I also know how to meet the strict standards of the financial industry.
 I’m excited to bring these skills to your team.
 Thanks!`;
     
-    // 页面加载时设置示例文本并自动处理
-    window.addEventListener('load', () => {
-      textInput.value = exampleText;
-      processText();
-    });
+    // 页面加载时初始化
+    window.addEventListener('load', initialize);
   </script>
 </body>
 </html>
