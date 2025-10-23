@@ -68,6 +68,8 @@
       }
       .masked-text {
         letter-spacing: 1px;
+        white-space: pre-wrap; /* 确保掩膜文本能像原文本一样换行 */
+        word-wrap: break-word; /* 长单词也能换行 */
       }
     }
   </style>
@@ -386,16 +388,16 @@
       
       // 创建句子行
       const sentenceRow = document.createElement('div');
-      sentenceRow.className = 'flex items-center mb-3';
+      sentenceRow.className = 'flex items-start mb-3'; // 使用items-start确保内容能换行显示
       
       // 序号徽章
       const numberBadge = document.createElement('div');
-      numberBadge.className = 'number-badge';
+      numberBadge.className = 'number-badge mt-0.5'; // 微调垂直位置
       numberBadge.textContent = index + 1;
       
       // 播放按钮
       const playBtn = document.createElement('button');
-      playBtn.className = 'mr-3 text-primary hover:text-primary/80 transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30 flex items-center justify-center flex-shrink-0';
+      playBtn.className = 'mr-3 text-primary hover:text-primary/80 transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30 flex items-center justify-center flex-shrink-0 mt-0.5'; // 微调垂直位置
       playBtn.innerHTML = '<i class="fa fa-play"></i>';
       playBtn.dataset.index = index;
       playBtn.title = 'Play this sentence';
@@ -410,18 +412,20 @@
       textSpan.textContent = sentence;
       textSpan.id = `sentence-text-${index}`;
       
-      // 隐藏状态下显示星号掩码
+      // 隐藏状态下显示星号掩码 - 改进版本
       const maskedSpan = document.createElement('span');
       maskedSpan.className = 'leading-relaxed masked-text hidden';
       maskedSpan.id = `sentence-masked-${index}`;
-      maskedSpan.textContent = '*'.repeat(sentence.length);
+      
+      // 生成与原句结构相似的掩膜（保留换行和空格结构）
+      maskedSpan.textContent = createMaskedText(sentence);
       
       textContainer.appendChild(textSpan);
       textContainer.appendChild(maskedSpan);
       
       // 控制按钮容器
       const controlsContainer = document.createElement('div');
-      controlsContainer.className = 'flex items-center space-x-1';
+      controlsContainer.className = 'flex items-center space-x-1 ml-2';
       
       // 眼睛按钮（显示/隐藏）
       const eyeBtn = document.createElement('button');
@@ -534,6 +538,16 @@
       return container;
     }
     
+    // 创建与原句结构相似的掩膜文本（保留换行和空格）
+    function createMaskedText(original) {
+      // 将每个字符替换为*，但保留原有的换行和空格结构
+      return original.split('').map(char => {
+        // 保留换行符和空格，其他字符替换为*
+        if (char === '\n' || char === ' ') return char;
+        return '*';
+      }).join('');
+    }
+    
     // 切换句子显示/隐藏状态
     function toggleSentenceVisibility(index, button) {
       // 切换状态
@@ -555,7 +569,7 @@
       }
     }
     
-    // 更新句子可见性 - 修复了错误
+    // 更新句子可见性
     function updateSentenceVisibility(index) {
       // 获取元素并添加存在性检查
       const textSpan = document.getElementById(`sentence-text-${index}`);
