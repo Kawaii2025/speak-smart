@@ -66,6 +66,9 @@
       .number-badge {
         @apply w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium mr-3 flex-shrink-0;
       }
+      .masked-text {
+        letter-spacing: 1px;
+      }
     }
   </style>
 </head>
@@ -96,6 +99,7 @@
       <h2 class="text-[clamp(1.5rem,3vw,2.5rem)] font-bold mb-4 text-shadow">English Speaking Practice</h2>
       <p class="text-neutral-500 dark:text-neutral-300 max-w-2xl mx-auto">
         Enter your sentences, each on a new line. Click play buttons to practice, mark as mastered when you've learned it.
+        Use the eye button to show/hide sentences for memorization practice.
       </p>
     </section>
     
@@ -158,7 +162,7 @@
           <div id="play-progress" class="progress-fill"></div>
         </div>
         
-        <div id="sentences-container" class="space-y-4">
+        <div id="sentences-container" class="space-y-6">
           <!-- 句子将在这里动态生成 -->
         </div>
       </div>
@@ -171,8 +175,8 @@
         <div>
           <h4 class="font-semibold text-primary mb-1">Practice Tips</h4>
           <p class="text-sm text-neutral-500 dark:text-neutral-300">
-            Your progress is automatically saved. Listen to each sentence, repeat it until you're comfortable, 
-            then mark it as mastered. Use "Play Unmastered" to focus on sentences you haven't yet mastered.
+            Your progress is automatically saved. Hide sentences with the eye button to test your memory, 
+            then use the input field to practice writing them. Listen to check your pronunciation!
           </p>
         </div>
       </div>
@@ -202,6 +206,8 @@
     const STORAGE_KEYS = {
       TEXT_CONTENT: 'linespeak_text_content',
       MASTERED_SENTENCES: 'linespeak_mastered_sentences',
+      HIDDEN_SENTENCES: 'linespeak_hidden_sentences',
+      MASKED_INPUTS: 'linespeak_masked_inputs',
       DARK_MODE: 'darkMode'
     };
     
@@ -211,6 +217,7 @@
     let currentSentenceIndex = 0;
     let sentencesList = [];
     let masteredSentences = []; // 存储已掌握的句子索引
+    let hiddenSentences = [];   // 存储隐藏状态的句子索引
     
     // 初始化 - 从本地存储加载数据
     function initialize() {
@@ -319,6 +326,21 @@
         masteredSentences = new Array(sentencesList.length).fill(false);
       }
       
+      // 从本地存储加载隐藏状态
+      const savedHidden = localStorage.getItem(STORAGE_KEYS.HIDDEN_SENTENCES);
+      if (savedHidden) {
+        const parsedHidden = JSON.parse(savedHidden);
+        hiddenSentences = Array(sentencesList.length).fill(true); // 默认隐藏所有句子
+        parsedHidden.forEach((isHidden, index) => {
+          if (index < hiddenSentences.length) {
+            hiddenSentences[index] = isHidden;
+          }
+        });
+      } else {
+        // 默认隐藏所有句子
+        hiddenSentences = new Array(sentencesList.length).fill(true);
+      }
+      
       // 清空并显示结果区域
       sentencesContainer.innerHTML = '';
       resultsSection.classList.remove('hidden');
@@ -340,71 +362,259 @@
         if (trimmedSentence) {
           const sentenceElement = createSentenceElement(trimmedSentence, index);
           sentencesContainer.appendChild(sentenceElement);
+          // 元素已添加到DOM后再更新可见性
+          updateSentenceVisibility(index);
         }
       });
+      
+      // 加载保存的默写内容
+      loadMaskedInputs();
     }
     
     // 创建句子元素
     function createSentenceElement(sentence, index) {
-      const div = document.createElement('div');
-      div.className = 'flex items-center p-3 rounded-lg sentence-hover';
-      div.dataset.index = index;
-      div.id = `sentence-${index}`;
+      // 创建主容器
+      const container = document.createElement('div');
+      container.className = 'p-3 rounded-lg sentence-hover';
+      container.dataset.index = index;
+      container.id = `sentence-container-${index}`;
       
       // 如果是已掌握的句子，添加相应样式
       if (masteredSentences[index]) {
-        div.classList.add('sentence-mastered');
+        container.classList.add('sentence-mastered');
       }
+      
+      // 创建句子行
+      const sentenceRow = document.createElement('div');
+      sentenceRow.className = 'flex items-center mb-3';
       
       // 序号徽章
       const numberBadge = document.createElement('div');
       numberBadge.className = 'number-badge';
       numberBadge.textContent = index + 1;
       
-      // 播放按钮 - 使用flex确保垂直居中
+      // 播放按钮
       const playBtn = document.createElement('button');
       playBtn.className = 'mr-3 text-primary hover:text-primary/80 transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30 flex items-center justify-center flex-shrink-0';
       playBtn.innerHTML = '<i class="fa fa-play"></i>';
       playBtn.dataset.index = index;
+      playBtn.title = 'Play this sentence';
+      
+      // 句子文本容器
+      const textContainer = document.createElement('div');
+      textContainer.className = 'flex-1';
       
       // 句子文本
       const textSpan = document.createElement('span');
-      textSpan.className = 'flex-1 leading-relaxed';
+      textSpan.className = 'leading-relaxed';
       textSpan.textContent = sentence;
+      textSpan.id = `sentence-text-${index}`;
+      
+      // 隐藏状态下显示星号掩码
+      const maskedSpan = document.createElement('span');
+      maskedSpan.className = 'leading-relaxed masked-text hidden';
+      maskedSpan.id = `sentence-masked-${index}`;
+      maskedSpan.textContent = '*'.repeat(sentence.length);
+      
+      textContainer.appendChild(textSpan);
+      textContainer.appendChild(maskedSpan);
+      
+      // 控制按钮容器
+      const controlsContainer = document.createElement('div');
+      controlsContainer.className = 'flex items-center space-x-1';
+      
+      // 眼睛按钮（显示/隐藏）
+      const eyeBtn = document.createElement('button');
+      eyeBtn.className = `transition-colors p-2 rounded-full hover:bg-neutral-200 dark:hover:bg-neutral-500 focus:outline-none focus:ring-2 focus:ring-neutral-300 dark:focus:ring-neutral-400 flex items-center justify-center flex-shrink-0`;
+      eyeBtn.innerHTML = hiddenSentences[index] ? '<i class="fa fa-eye-slash text-neutral-500"></i>' : '<i class="fa fa-eye text-neutral-500"></i>';
+      eyeBtn.dataset.index = index;
+      eyeBtn.title = hiddenSentences[index] ? 'Show sentence' : 'Hide sentence';
       
       // 掌握按钮
       const masterBtn = document.createElement('button');
-      masterBtn.className = `ml-3 transition-colors p-2 rounded-full hover:bg-success/10 focus:outline-none focus:ring-2 focus:ring-success/30 flex items-center justify-center flex-shrink-0 ${masteredSentences[index] ? 'text-success' : 'text-neutral-400 hover:text-success'}`;
+      masterBtn.className = `transition-colors p-2 rounded-full hover:bg-success/10 focus:outline-none focus:ring-2 focus:ring-success/30 flex items-center justify-center flex-shrink-0 ${masteredSentences[index] ? 'text-success' : 'text-neutral-400 hover:text-success'}`;
       masterBtn.innerHTML = '<i class="fa fa-check"></i>';
       masterBtn.dataset.index = index;
       masterBtn.title = masteredSentences[index] ? 'Unmark as mastered' : 'Mark as mastered';
       
-      div.appendChild(numberBadge);
-      div.appendChild(playBtn);
-      div.appendChild(textSpan);
-      div.appendChild(masterBtn);
+      controlsContainer.appendChild(eyeBtn);
+      controlsContainer.appendChild(masterBtn);
+      
+      // 组装句子行
+      sentenceRow.appendChild(numberBadge);
+      sentenceRow.appendChild(playBtn);
+      sentenceRow.appendChild(textContainer);
+      sentenceRow.appendChild(controlsContainer);
+      
+      // 默写输入框
+      const inputContainer = document.createElement('div');
+      inputContainer.className = 'mt-2 ml-14'; // 缩进与句子对齐
+      
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.id = `sentence-input-${index}`;
+      input.className = 'w-full p-2 border border-neutral-200 dark:border-neutral-500 rounded-lg bg-neutral-50 dark:bg-neutral-700 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all text-sm';
+      input.placeholder = 'Type the sentence here to practice...';
+      
+      // 验证按钮
+      const checkBtn = document.createElement('button');
+      checkBtn.className = 'mt-1 bg-primary/10 hover:bg-primary/20 text-primary px-3 py-1 rounded text-sm transition-colors';
+      checkBtn.innerHTML = '<i class="fa fa-check-circle mr-1"></i> Check';
+      checkBtn.dataset.index = index;
+      
+      // 验证结果
+      const resultMsg = document.createElement('div');
+      resultMsg.id = `sentence-result-${index}`;
+      resultMsg.className = 'mt-1 text-sm hidden';
+      
+      inputContainer.appendChild(input);
+      inputContainer.appendChild(checkBtn);
+      inputContainer.appendChild(resultMsg);
+      
+      // 组装容器
+      container.appendChild(sentenceRow);
+      container.appendChild(inputContainer);
       
       // 播放按钮点击事件
       playBtn.addEventListener('click', (e) => {
         const idx = parseInt(e.currentTarget.dataset.index);
         stopPlayback(); // 停止连播
-        speakSentence(sentence, div, playBtn, idx, false);
+        speakSentence(sentencesList[idx], container, playBtn, idx, false);
       });
       
-      // 点击句子本身也可以播放
+      // 点击句子文本也可以播放
       textSpan.addEventListener('click', () => {
         stopPlayback(); // 停止连播
-        speakSentence(sentence, div, playBtn, index, false);
+        speakSentence(sentence, container, playBtn, index, false);
+      });
+      
+      maskedSpan.addEventListener('click', () => {
+        stopPlayback(); // 停止连播
+        speakSentence(sentence, container, playBtn, index, false);
       });
       
       // 掌握按钮点击事件
       masterBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         const idx = parseInt(e.currentTarget.dataset.index);
-        toggleMasteredStatus(idx, div, masterBtn);
+        toggleMasteredStatus(idx, container, masterBtn);
       });
       
-      return div;
+      // 眼睛按钮点击事件（显示/隐藏句子）
+      eyeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(e.currentTarget.dataset.index);
+        toggleSentenceVisibility(idx, eyeBtn);
+      });
+      
+      // 验证按钮点击事件
+      checkBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const idx = parseInt(e.currentTarget.dataset.index);
+        checkInput(idx, input, resultMsg);
+      });
+      
+      // 输入框回车事件
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const idx = parseInt(input.dataset.index);
+          checkInput(idx, input, resultMsg);
+        }
+      });
+      
+      // 保存输入框数据
+      input.addEventListener('input', debounce(() => {
+        saveMaskedInput(index, input.value);
+      }, 300));
+      
+      // 关联索引
+      input.dataset.index = index;
+      
+      return container;
+    }
+    
+    // 切换句子显示/隐藏状态
+    function toggleSentenceVisibility(index, button) {
+      // 切换状态
+      hiddenSentences[index] = !hiddenSentences[index];
+      
+      // 保存到本地存储
+      localStorage.setItem(STORAGE_KEYS.HIDDEN_SENTENCES, JSON.stringify(hiddenSentences));
+      
+      // 更新UI
+      updateSentenceVisibility(index);
+      
+      // 更新按钮
+      if (hiddenSentences[index]) {
+        button.innerHTML = '<i class="fa fa-eye-slash text-neutral-500"></i>';
+        button.title = 'Show sentence';
+      } else {
+        button.innerHTML = '<i class="fa fa-eye text-neutral-500"></i>';
+        button.title = 'Hide sentence';
+      }
+    }
+    
+    // 更新句子可见性 - 修复了错误
+    function updateSentenceVisibility(index) {
+      // 获取元素并添加存在性检查
+      const textSpan = document.getElementById(`sentence-text-${index}`);
+      const maskedSpan = document.getElementById(`sentence-masked-${index}`);
+      
+      // 确保元素存在再进行操作
+      if (!textSpan || !maskedSpan) {
+        console.warn(`Sentence elements for index ${index} not found`);
+        return;
+      }
+      
+      if (hiddenSentences[index]) {
+        textSpan.classList.add('hidden');
+        maskedSpan.classList.remove('hidden');
+      } else {
+        textSpan.classList.remove('hidden');
+        maskedSpan.classList.add('hidden');
+      }
+    }
+    
+    // 检查默写输入
+    function checkInput(index, input, resultMsg) {
+      const userInput = input.value.trim();
+      const originalSentence = sentencesList[index].trim();
+      
+      // 忽略大小写和标点符号的简单比较
+      const normalize = (str) => str.toLowerCase().replace(/[^\w\s]/gi, '');
+      
+      if (normalize(userInput) === normalize(originalSentence)) {
+        // 正确
+        resultMsg.textContent = 'Perfect! That\'s correct.';
+        resultMsg.className = 'mt-1 text-sm text-success';
+        input.classList.remove('border-danger', 'border-neutral-200', 'dark:border-neutral-500');
+        input.classList.add('border-success');
+      } else {
+        // 错误
+        resultMsg.textContent = `Not quite right. Correct: "${originalSentence}"`;
+        resultMsg.className = 'mt-1 text-sm text-danger';
+        input.classList.remove('border-success', 'border-neutral-200', 'dark:border-neutral-500');
+        input.classList.add('border-danger');
+      }
+    }
+    
+    // 保存默写输入内容
+    function saveMaskedInput(index, value) {
+      let inputs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MASKED_INPUTS) || '{}');
+      inputs[index] = value;
+      localStorage.setItem(STORAGE_KEYS.MASKED_INPUTS, JSON.stringify(inputs));
+    }
+    
+    // 加载保存的默写内容
+    function loadMaskedInputs() {
+      const inputs = JSON.parse(localStorage.getItem(STORAGE_KEYS.MASKED_INPUTS) || '{}');
+      for (const [index, value] of Object.entries(inputs)) {
+        const inputElement = document.getElementById(`sentence-input-${index}`);
+        if (inputElement) {
+          inputElement.value = value;
+        }
+      }
     }
     
     // 切换掌握状态
@@ -483,13 +693,18 @@
       
       // 获取当前句子元素
       const sentence = sentencesList[currentSentenceIndex];
-      const sentenceElement = document.getElementById(`sentence-${currentSentenceIndex}`);
+      const sentenceElement = document.getElementById(`sentence-container-${currentSentenceIndex}`);
       if (!sentenceElement) {
         finishPlayback();
         return;
       }
       
       const playBtn = sentenceElement.querySelector('button:first-of-type');
+      if (!playBtn) {
+        currentSentenceIndex++;
+        setTimeout(playNextSentence, 100);
+        return;
+      }
       
       // 播放当前句子
       speakSentence(sentence, sentenceElement, playBtn, currentSentenceIndex, true);
@@ -544,21 +759,31 @@
     
     // 重置所有句子状态
     function resetAllSentenceStates() {
-      document.querySelectorAll('#sentences-container > div').forEach(el => {
-        // 保留已掌握状态，但移除活跃状态
-        if (!el.classList.contains('sentence-mastered')) {
-          el.classList.remove('sentence-active');
+      // 遍历所有句子容器，添加存在性检查
+      document.querySelectorAll('[id^="sentence-container-"]').forEach(el => {
+        if (el) { // 确保元素存在
+          // 保留已掌握状态，但移除活跃状态
+          if (!el.classList.contains('sentence-mastered')) {
+            el.classList.remove('sentence-active');
+          }
         }
       });
-      document.querySelectorAll('#sentences-container button:first-of-type').forEach(btn => {
-        btn.innerHTML = '<i class="fa fa-play"></i>';
-        btn.classList.remove('text-secondary');
-        btn.classList.add('text-primary');
+      
+      // 遍历所有播放按钮，添加存在性检查
+      document.querySelectorAll('[id^="sentence-container-"] button:first-of-type').forEach(btn => {
+        if (btn) { // 确保按钮存在
+          btn.innerHTML = '<i class="fa fa-play"></i>';
+          btn.classList.remove('text-secondary');
+          btn.classList.add('text-primary');
+        }
       });
     }
     
     // 语音播放函数
     function speakSentence(text, sentenceElement, button, index, isPartOfSequence) {
+      // 检查元素是否存在
+      if (!sentenceElement || !button) return;
+      
       // 停止任何正在播放的语音
       window.speechSynthesis.cancel();
       
@@ -582,6 +807,9 @@
       
       // 播放结束时的处理
       utterance.onend = () => {
+        // 检查元素是否仍然存在
+        if (!sentenceElement || !button) return;
+        
         // 如果是连播模式，继续下一个句子
         if (isPartOfSequence && (isPlayingAll || isPlayingUnmastered) && index === currentSentenceIndex) {
           currentSentenceIndex++;
@@ -599,6 +827,10 @@
       // 播放错误处理
       utterance.onerror = (event) => {
         console.error('Speech error:', event.error);
+        
+        // 检查元素是否仍然存在
+        if (!sentenceElement || !button) return;
+        
         button.innerHTML = '<i class="fa fa-exclamation-triangle"></i>';
         button.classList.remove('text-secondary');
         button.classList.add('text-red-500');
@@ -610,10 +842,13 @@
         } else {
           // 3秒后恢复按钮状态
           setTimeout(() => {
-            sentenceElement.classList.remove('sentence-active');
-            button.innerHTML = '<i class="fa fa-play"></i>';
-            button.classList.remove('text-red-500');
-            button.classList.add('text-primary');
+            // 再次检查元素是否存在
+            if (sentenceElement && button) {
+              sentenceElement.classList.remove('sentence-active');
+              button.innerHTML = '<i class="fa fa-play"></i>';
+              button.classList.remove('text-red-500');
+              button.classList.add('text-primary');
+            }
           }, 3000);
         }
       };
