@@ -285,20 +285,40 @@
     }
     
     // 示例文本 - 按行分割
-    const exampleText = `Hello, how are you today?
-I am learning English pronunciation.
-Could you please repeat that?
-What time is the meeting?
-She goes to the park every Sunday.
-I have lived in this city for five years.
-Learning a new language takes time and practice.
-Could you speak a little slower?
-I enjoy reading books in my free time.
-What's your favorite English word?`;
+    const exampleText = `Good morning/afternoon.
+Thanks for having me today.
+I’m [Your Name], and I’m applying for the Web Front-End Development job.
+First, I have a bachelor’s degree in Geographic Information Systems from Beijing Forestry University.
+I studied there from 2010 to 2014.
+Since graduating, I’ve worked in front-end development for over 8 years.
+And 5 of those years were on financial projects.
+My last job was at Shenzhen Farben Information Technology (Guangzhou Branch) from September 2020 to January 2023.
+There, I was a Web Front-End Engineer.
+My main work was on two HSBC projects: the Wealth Dashboard and Wealth Product Catalog.
+Let me tell you a bit about that.
+First, I built the front end with React.
+I also worked with the back-end team—they used Spring Boot—to make sure data moved smoothly between front and back.
+Second, I set up automated tests.
+I used Jest for unit tests, and even made coverage reports for them.
+I used Testcafe for E2E tests too.
+Then I got all these tests running on Jenkins.
+This made regression testing faster, and the system more reliable and easier to maintain.
+Third, I helped with small back-end tasks.
+For example, I developed simple APIs, maintained them, and wrote unit tests for back-end code with Karate/JUnit.
+Before Faben, I worked at Pactera Jinxin and South Digital.
+Those jobs let me get really good at Vue, Angular, and TypeScript.
+I also worked on projects like GF Securities’ customer relationship systems and GIS-based tax analysis tools back then.
+Overall, I’m skilled in HTML, JS, CSS, React, Vue, Angular, TypeScript, and webpack.
+I’m good at writing code that’s easy to reuse and maintain—this is done using Flux architecture.
+I also know how to meet the strict standards of the financial industry.
+I’m excited to bring these skills to your team.
+Thanks!`;
     
     // 页面加载时设置示例文本
     window.addEventListener('load', () => {
       textInput.value = exampleText;
+      // 页面加载完成后自动处理文本（相当于点击了Process按钮）
+      processText();
     });
   </script>
 </body>
