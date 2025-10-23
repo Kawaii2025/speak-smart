@@ -71,6 +71,9 @@
         white-space: pre-wrap; /* 确保掩膜文本能像原文本一样换行 */
         word-wrap: break-word; /* 长单词也能换行 */
       }
+      .play-btn-consistent {
+        @apply text-primary hover:text-primary/80 transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30 flex items-center justify-center flex-shrink-0;
+      }
     }
   </style>
 </head>
@@ -395,9 +398,9 @@
       numberBadge.className = 'number-badge mt-0.5'; // 微调垂直位置
       numberBadge.textContent = index + 1;
       
-      // 播放按钮
+      // 播放按钮 - 使用统一类名确保样式一致
       const playBtn = document.createElement('button');
-      playBtn.className = 'mr-3 text-primary hover:text-primary/80 transition-colors p-2 rounded-full hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/30 flex items-center justify-center flex-shrink-0 mt-0.5'; // 微调垂直位置
+      playBtn.className = 'play-btn-consistent mr-3';
       playBtn.innerHTML = '<i class="fa fa-play"></i>';
       playBtn.dataset.index = index;
       playBtn.title = 'Play this sentence';
@@ -713,7 +716,7 @@
         return;
       }
       
-      const playBtn = sentenceElement.querySelector('button:first-of-type');
+      const playBtn = sentenceElement.querySelector('.play-btn-consistent');
       if (!playBtn) {
         currentSentenceIndex++;
         setTimeout(playNextSentence, 100);
@@ -784,7 +787,7 @@
       });
       
       // 遍历所有播放按钮，添加存在性检查
-      document.querySelectorAll('[id^="sentence-container-"] button:first-of-type').forEach(btn => {
+      document.querySelectorAll('.play-btn-consistent').forEach(btn => {
         if (btn) { // 确保按钮存在
           btn.innerHTML = '<i class="fa fa-play"></i>';
           btn.classList.remove('text-secondary');
